@@ -15,7 +15,7 @@ async fn main() -> std::io::Result<()> {
 pub async fn get_image(what: web::Path<u32>) -> actix_web::Result<HttpResponse> {
     println!("Request");
     let camno = what.into_inner();
-    if camno > 10 {
+    if camno > 9 {
         return Err(actix_web::error::ErrorBadRequest("invalid camera"));
     }
     let url = format!("http://192.168.10{}.2:8000/", camno);
