@@ -1,9 +1,21 @@
-use actix_web::{get, web, App, HttpResponse, HttpServer};
+use actix_web::{get, web, HttpResponse};
+use structopt::StructOpt;
+
+#[derive(Debug, StructOpt)]
+#[structopt(name = "resizer", about = "A very fixed-function image proxy")]
+struct Opt {
+    #[structopt(short, long, default_value = "8000")]
+    port: u16,
+}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    use actix_web::{App, HttpServer};
+    let opts = Opt::from_args();
+    let bind_addr = std::net::SocketAddrV4::new(std::net::Ipv4Addr::new(0, 0, 0, 0), opts.port);
     HttpServer::new(move || App::new().service(get_image))
-        .bind("0.0.0.0:8000")?
+        .bind(bind_addr)?
+        .workers(1)
         .run()
         .await
 }
@@ -15,7 +27,13 @@ pub async fn get_image(what: web::Path<u32>) -> actix_web::Result<HttpResponse> 
         return Err(actix_web::error::ErrorBadRequest("invalid camera"));
     }
     let url = format!("http://192.168.10{}.2:8000/", camno);
-    let body = reqwest::get(url)
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(actix_web::error::ErrorInternalServerError)?;
+    let body = client
+        .get(url)
+        .send()
         .await
         .map_err(actix_web::error::ErrorBadRequest)?
         .bytes()
